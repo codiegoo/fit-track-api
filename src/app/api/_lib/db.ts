@@ -2,7 +2,9 @@ import { neon } from '@neondatabase/serverless';
 
 export const sql = neon(process.env.DATABASE_URL!);
 
-// util opcional para detectar UNIQUE violations
-export function isUniqueViolation(e: unknown) {
-  return typeof e === 'object' && e !== null && (e as any).code === '23505';
+// Type guard para violación de UNIQUE (23505) SIN any
+export function isUniqueViolation(e: unknown): e is { code: '23505' } {
+  if (typeof e !== 'object' || e === null) return false;
+  const code = (e as { code?: unknown }).code;
+  return typeof code === 'string' && code === '23505';
 }

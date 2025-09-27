@@ -7,7 +7,7 @@ export { OPTIONS } from '../../_lib/http';
 
 import { issueTokensForUser, type JwtUser } from '../../_lib/auth';
 import bcrypt from 'bcryptjs';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 
 const schema = z.object({
   name: z.string().min(1).max(120),
@@ -15,19 +15,28 @@ const schema = z.object({
   password: z.string().min(6).max(100),
 });
 
+type UserRow = {
+  id: string;
+  email: string;
+  name: string | null;
+  tz: string;
+};
+
 export async function POST(req: Request) {
   try {
     const { name, email, password } = schema.parse(await req.json());
     const hash = await bcrypt.hash(password, 12);
 
-    const [row] = await sql/*sql*/`
+    const rows = await sql/*sql*/`
       INSERT INTO users (email, password_hash, name)
       VALUES (${email}, ${hash}, ${name})
       RETURNING id, email, name, tz
-    `;
+    ` as unknown as UserRow[];
 
-    // Tipar explícitamente lo que necesitas para JWT
-    const jwtUser: JwtUser = { id: row.id as string, email: row.email as string };
+    const row = rows[0];
+    if (!row) return err('Register failed', 400); // salvaguarda
+
+    const jwtUser: JwtUser = { id: row.id, email: row.email };
 
     const tokens = await issueTokensForUser(jwtUser, {
       userAgent: req.headers.get('user-agent'),
@@ -35,9 +44,10 @@ export async function POST(req: Request) {
     });
 
     return ok({ user: row, ...tokens });
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (isUniqueViolation(e)) return err('Email already registered', 409);
-    if (e?.issues) return err(e.issues[0].message, 400);
-    return err(e?.message || 'Register failed', 400);
+    if (e instanceof ZodError) return err(e.issues[0]?.message ?? 'Invalid body', 400);
+    if (e instanceof Error)   return err(e.message || 'Register failed', 400);
+    return err('Register failed', 400);
   }
 }

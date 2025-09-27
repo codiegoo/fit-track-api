@@ -3,9 +3,9 @@ export const dynamic = 'force-dynamic';
 
 import { sql } from '../_lib/db';
 import { ok, err } from '../_lib/http';
-export { OPTIONS } from '../_lib/http';       // ← re-exporta OPTIONS (no lo declares ni lo importes con el mismo nombre)
+export { OPTIONS } from '../_lib/http';
 import { requireUser } from '../_lib/auth';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 
 const schema = z.object({
   provider: z.enum(['expo', 'fcm', 'apns']),
@@ -14,12 +14,21 @@ const schema = z.object({
   device_model: z.string().optional().nullable(),
 });
 
+type DeviceRow = {
+  id: string;
+  provider: 'expo' | 'fcm' | 'apns';
+  token: string;
+  device_os: 'android' | 'ios' | 'web';
+  device_model: string | null;
+  last_seen_at: string;
+};
+
 export async function POST(req: Request) {
   try {
-    const u = requireUser(req);                     // Authorization: Bearer <accessToken>
+    const u = requireUser(req); // Authorization: Bearer <accessToken>
     const body = schema.parse(await req.json());
 
-    const [row] = await sql/*sql*/`
+    const rows = await sql/*sql*/`
       INSERT INTO device_tokens (user_id, provider, token, device_os, device_model, last_seen_at)
       VALUES (${u.id}, ${body.provider}::push_provider, ${body.token},
               ${body.device_os}::platform, ${body.device_model ?? null}, now())
@@ -31,12 +40,18 @@ export async function POST(req: Request) {
                     last_seen_at = now(),
                     disabled_at = NULL
       RETURNING id, provider, token, device_os, device_model, last_seen_at
-    `;
+    ` as unknown as DeviceRow[];
 
+    const row = rows[0];
     return ok({ device: row });
-  } catch (e: any) {
-    if (e?.issues) return err(e.issues[0].message, 400);
-    if (e?.message?.includes('token')) return err('Unauthorized', 401);
+  } catch (e: unknown) {
+    if (e instanceof ZodError) {
+      return err(e.issues[0]?.message ?? 'Invalid body', 400);
+    }
+    if (e instanceof Error) {
+      if (/token|unauthorized/i.test(e.message)) return err('Unauthorized', 401);
+      return err(e.message || 'Failed to save device token', 400);
+    }
     return err('Failed to save device token', 400);
   }
 }

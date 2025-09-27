@@ -1,6 +1,11 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+export { OPTIONS } from '../_lib/http';
+
+// Tipado ancho pero sin `any`
+type OpenAPISpec = Record<string, unknown>;
+
 export async function GET() {
   const spec = {
     openapi: '3.0.3',
@@ -286,7 +291,7 @@ export async function GET() {
         },
       },
     },
-  };
+  } as const satisfies OpenAPISpec;
 
   return new Response(JSON.stringify(spec), {
     headers: { 'content-type': 'application/json' },
