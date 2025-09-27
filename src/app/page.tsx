@@ -1,10 +1,19 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client';
+
+import dynamic from 'next/dynamic';
+import 'swagger-ui-react/swagger-ui.css';
+
+const SwaggerUI = dynamic(() => import('swagger-ui-react'), { ssr: false });
 
 export default function Home() {
   return (
-    <div className={styles.page}>
-      <h1>FitTrack Simple Api</h1>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 16 }}>
+      <SwaggerUI
+        url="/api/openapi"
+        docExpansion="list"
+        defaultModelsExpandDepth={1}
+        tryItOutEnabled
+      />
     </div>
   );
 }
