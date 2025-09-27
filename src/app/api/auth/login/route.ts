@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 import { sql } from '../../_lib/db';
 import { ok, err } from '../../_lib/http';
 export { OPTIONS } from '../../_lib/http';
-import { issueTokensForUser, type JwtUser } from '../../_lib/auth';
+import { issueTokensForUser } from '../../_lib/auth';
 import bcrypt from 'bcryptjs';
 import { z, ZodError } from 'zod';
 
@@ -37,14 +37,17 @@ export async function POST(req: Request) {
 
     await sql`UPDATE users SET last_login_at = now() WHERE id = ${row.id}`;
 
-    const jwtUser: JwtUser = { id: row.id, email: row.email };
-    const tokens = await issueTokensForUser(jwtUser, {
-      userAgent: req.headers.get('user-agent'),
-      ip: req.headers.get('x-forwarded-for'),
-    });
 
-    // evita exponer el hash
-    const { password_hash, ...user } = row;
+    const tokens = await issueTokensForUser({ id: row.id, email: row.email }, { /* meta */ });
+
+    // No creamos la variable password_hash
+    const user: Omit<UserRow, 'password_hash'> = {
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      tz: row.tz,
+    };
+
     return ok({ user, ...tokens });
   } catch (e: unknown) {
     if (e instanceof ZodError) return err(e.issues[0]?.message ?? 'Validation error', 400);

@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "ES2022",                         // más moderno para Node 18+/Next 15
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],   // alinea con el target
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -12,15 +12,12 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+
+    "baseUrl": ".",                             // ← necesario para que "paths" funcione
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "types": ["node"]                           // ← tipado de process, crypto, etc.
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
