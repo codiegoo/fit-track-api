@@ -2,10 +2,14 @@ import jwt, { type Secret, type SignOptions, type JwtPayload } from 'jsonwebtoke
 import crypto from 'crypto';
 import { sql } from './db';
 
-export const ACCESS_TTL  = process.env.JWT_ACCESS_TTL  ?? '15m';
-export const REFRESH_TTL = process.env.JWT_REFRESH_TTL ?? '30d';
-
 export type JwtUser = { id: string; email: string };
+
+// Tipo que acepta jsonwebtoken para expiresIn (número o string estilo "15m")
+type ExpiresIn = NonNullable<SignOptions['expiresIn']>;
+
+// TTLs tipados de una vez
+const ACCESS_TTL: ExpiresIn  = (process.env.JWT_ACCESS_TTL  ?? '15m') as ExpiresIn;
+const REFRESH_TTL: ExpiresIn = (process.env.JWT_REFRESH_TTL ?? '30d') as ExpiresIn;
 
 const getSecret = (name: string): Secret => {
   const v = process.env[name];
@@ -23,13 +27,11 @@ export function getBearer(req: Request) {
 }
 
 export function signAccessToken(user: JwtUser) {
-  const opts: SignOptions = { expiresIn: ACCESS_TTL };
-  return jwt.sign(user, ACCESS_SECRET, opts);
+  return jwt.sign(user, ACCESS_SECRET, { expiresIn: ACCESS_TTL });
 }
 
 export function signRefreshToken(user: JwtUser & { jti: string }) {
-  const opts: SignOptions = { expiresIn: REFRESH_TTL };
-  return jwt.sign(user, REFRESH_SECRET, opts);
+  return jwt.sign(user, REFRESH_SECRET, { expiresIn: REFRESH_TTL });
 }
 
 /** Verifica y asegura que el payload tenga id+email */

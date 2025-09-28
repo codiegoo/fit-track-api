@@ -3,15 +3,19 @@
 import dynamic from 'next/dynamic';
 import 'swagger-ui-react/swagger-ui.css';
 
-const SwaggerUI = dynamic(() => import('swagger-ui-react'), { ssr: false });
+// Nota: .then(m => m.default) para asegurar el default export
+const SwaggerUI = dynamic(
+  () => import('swagger-ui-react').then(m => m.default),
+  { ssr: false }
+);
 
-export default function Home() {
+export default function DocsPage() {
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 16 }}>
+    <div style={{ height: '100vh' }}>
       <SwaggerUI
         url="/api/openapi"
-        docExpansion="list"
-        defaultModelsExpandDepth={1}
+        docExpansion="none"
+        defaultModelsExpandDepth={-1}
         tryItOutEnabled
       />
     </div>

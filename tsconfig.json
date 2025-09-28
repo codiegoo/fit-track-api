@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
-    "target": "ES2022",                         // más moderno para Node 18+/Next 15
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],   // alinea con el target
+    "target": "ES2022", // más moderno para Node 18+/Next 15
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ], // alinea con el target
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -12,13 +16,31 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
-
-    "baseUrl": ".",                             // ← necesario para que "paths" funcione
+    "baseUrl": ".", // ← necesario para que "paths" funcione
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     },
-    "types": ["node"]                           // ← tipado de process, crypto, etc.
+    "types": [
+      "node"
+    ] // ← tipado de process, crypto, etc.
+    ,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.d.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
