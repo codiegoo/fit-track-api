@@ -28,7 +28,7 @@ export default function Home() {
           </div>
           <div className="card">
             <h3>Users</h3>
-            <p>Perfil y administración básica.</p>
+            <p>Perfil y administración.</p>
             <code>GET /api/users/me</code>
           </div>
           <div className="card">
