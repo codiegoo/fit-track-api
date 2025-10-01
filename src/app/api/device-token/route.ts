@@ -41,12 +41,15 @@ export async function POST(req: NextRequest) {
     }
     const parsed = DeviceTokenSchema.safeParse(bodyUnknown);
     if (!parsed.success) {
-      return err("INVALID_BODY", 400, { details: parsed.error.flatten() });
+      return Response.json(
+        { ok: false, error: "INVALID_BODY", details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
     const body = parsed.data;
 
     // 3) UPSERT por token
-    const rows = (await sql/* sql */`
+    const rows: DeviceRow[] = await sql/* sql */`
       INSERT INTO device_tokens (user_id, provider, token, device_os, device_model, last_seen_at)
       VALUES (
         ${u.id},
@@ -65,7 +68,7 @@ export async function POST(req: NextRequest) {
         last_seen_at = now(),
         disabled_at = NULL
       RETURNING id, provider, token, device_os, device_model, last_seen_at
-    `) as DeviceRow[];
+    `;
 
     const device = rows?.[0];
     if (!device) {
