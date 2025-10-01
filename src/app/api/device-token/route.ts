@@ -10,7 +10,6 @@ import { requireUser } from "../_lib/auth";
 import { z } from "zod";
 
 // —— Validación del body ——
-// provider y device_os deben mapear a enums en Postgres (push_provider, platform)
 const DeviceTokenSchema = z.object({
   provider: z.enum(["expo", "fcm", "apns"]),
   token: z.string().min(10),
@@ -24,15 +23,13 @@ type DeviceRow = {
   token: string;
   device_os: "android" | "ios" | "web";
   device_model: string | null;
-  last_seen_at: string; // timestamptz -> ISO string
+  last_seen_at: string;
 };
 
 export async function POST(req: NextRequest) {
   try {
-    // 1) Auth: requiere Authorization: Bearer <accessToken>
     const u = requireUser(req);
 
-    // 2) Body tipado
     let bodyUnknown: unknown;
     try {
       bodyUnknown = await req.json();
@@ -48,8 +45,8 @@ export async function POST(req: NextRequest) {
     }
     const body = parsed.data;
 
-    // 3) UPSERT por token
-    const rows: DeviceRow[] = await sql/* sql */`
+    // UPSERT
+    const rows = (await sql/* sql */`
       INSERT INTO device_tokens (user_id, provider, token, device_os, device_model, last_seen_at)
       VALUES (
         ${u.id},
@@ -68,12 +65,10 @@ export async function POST(req: NextRequest) {
         last_seen_at = now(),
         disabled_at = NULL
       RETURNING id, provider, token, device_os, device_model, last_seen_at
-    `;
+    `) as DeviceRow[];
 
-    const device = rows?.[0];
-    if (!device) {
-      return err("FAILED_TO_SAVE_DEVICE_TOKEN", 400);
-    }
+    const device = rows[0];
+    if (!device) return err("FAILED_TO_SAVE_DEVICE_TOKEN", 400);
 
     return ok({ device });
   } catch (e) {
