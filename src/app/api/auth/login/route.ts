@@ -1,93 +1,109 @@
 // app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import jwt from "jsonwebtoken";
+import { z } from "zod";
 
-const ALLOWED_ORIGINS = [
-  "http://localhost:8081", // Expo web (metro)
-  "http://localhost:19006", // Expo web (dev server)
-];
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-function makeCors(req: NextRequest) {
-  const origin = req.headers.get("origin") ?? "";
-  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : "";
+const ALLOWED_ORIGINS = new Set<string>([
+  "http://localhost:8081",   // Expo (metro) web
+  "http://localhost:19006",  // Expo web
+  process.env.NEXT_PUBLIC_WEB_ORIGIN ?? "", // tu dominio web prod
+].filter(Boolean));
 
-  // Si quieres admitir producción, agrega aquí tu dominio prod
+function corsFor(req: NextRequest) {
+  const origin = req.headers.get("origin");
+  const fromWeb = !!origin;
+  const allowed = fromWeb && ALLOWED_ORIGINS.has(origin!);
+
   const headers = new Headers({
-    "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Credentials": "true", // necesario porque usaremos cookie HttpOnly
+    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-CSRF-Token",
-    "Access-Control-Max-Age": "600", // cachea preflight 10 min
+    "Access-Control-Max-Age": "600",
     "Vary": "Origin",
   });
+  if (allowed) headers.set("Access-Control-Allow-Origin", origin!);
 
-  return { origin, allow, headers };
+  return { fromWeb, allowed, headers, origin };
 }
 
-// Preflight
 export async function OPTIONS(req: NextRequest) {
-  const { allow, headers } = makeCors(req);
-  if (!allow) return new NextResponse("Origin not allowed", { status: 403 });
+  const { fromWeb, allowed, headers } = corsFor(req);
+  // Si viene de un navegador con Origin no permitido -> 403
+  if (fromWeb && !allowed) return new NextResponse("Origin not allowed", { status: 403, headers });
   return new NextResponse(null, { status: 204, headers });
 }
 
-// Login
-export async function POST(req: NextRequest) {
-  const { allow, headers } = makeCors(req);
+// —— esquema del body ——
+const LoginBody = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+type LoginBody = z.infer<typeof LoginBody>;
 
-  // Si viene desde web y el origin no está permitido, corta
-  if (req.headers.get("origin") && !allow) {
+// —— helpers JWT ——
+const JWT_ACCESS_TTL = process.env.JWT_ACCESS_TTL ?? "15m";
+const JWT_REFRESH_TTL = process.env.JWT_REFRESH_TTL ?? "30d";
+const JWT_SECRET = process.env.JWT_SECRET ?? "dev-only-change-me";
+
+function signAccess(userId: string) {
+  return jwt.sign({ sub: userId, typ: "access" }, JWT_SECRET, { expiresIn: JWT_ACCESS_TTL });
+}
+function signRefresh(userId: string) {
+  return jwt.sign({ sub: userId, typ: "refresh" }, JWT_SECRET, { expiresIn: JWT_REFRESH_TTL });
+}
+
+export async function POST(req: NextRequest) {
+  const { fromWeb, allowed, headers } = corsFor(req);
+
+  if (fromWeb && !allowed) {
     return new NextResponse("Origin not allowed", { status: 403, headers });
   }
 
-  const { email, password } = await req.json().catch(() => ({} as any));
-
-  if (!email || !password) {
-    return new NextResponse(
-      JSON.stringify({ ok: false, error: "MISSING_FIELDS" }),
-      { status: 400, headers: addJson(headers) }
+  // parse sin any
+  let data: unknown;
+  try { data = await req.json(); } catch { data = {}; }
+  const parsed = LoginBody.safeParse(data);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { ok: false, error: "INVALID_BODY", details: parsed.error.flatten() },
+      { status: 400, headers }
     );
   }
 
-  // TODO: valida contra tu DB real
-  const valid = email === "fer55@gmail.com" && password === "supersecreto";
-  if (!valid) {
-    return new NextResponse(
-      JSON.stringify({ ok: false, error: "INVALID_CREDENTIALS" }),
-      { status: 401, headers: addJson(headers) }
-    );
+  const { email, password } = parsed.data;
+
+  // TODO: valida contra tu DB real (Neon, etc.)
+  const userFromDb = email === "fer55@gmail.com" && password === "supersecreto"
+    ? { id: "u_1", name: "Fersito", email }
+    : null;
+
+  if (!userFromDb) {
+    return NextResponse.json({ ok: false, error: "INVALID_CREDENTIALS" }, { status: 401, headers });
   }
 
-  // ==== Genera tokens reales aquí ====
-  const accessToken = "ACCESS_JWT_REAL_AQUI";   // exp corto (5–15 min)
-  const refreshToken = "REFRESH_JWT_REAL_AQUI"; // exp largo (7–30 días)
-  const user = { id: "u_1", name: "Fersito", email };
+  const accessToken = signAccess(userFromDb.id);
+  const refreshToken = signRefresh(userFromDb.id);
 
-  const res = new NextResponse(
-    JSON.stringify({ ok: true, accessToken, user }),
-    { status: 200, headers: addJson(headers) }
+  const res = NextResponse.json(
+    { ok: true, user: userFromDb, accessToken }, // RN usará este accessToken
+    { status: 200, headers }
   );
 
-  // ✅ Cookie de refresh solo para WEB (cuando hay Origin permitido).
-  // En RN nativo usualmente NO hay header Origin → igual se puede setear, pero RN no la usará.
-  // Si quieres limitarla a “solo web”, puedes condicionar con `if (allow) { ... }`
-  res.headers.append(
-    "Set-Cookie",
-    [
-      `refresh_token=${refreshToken}`,
-      "Path=/",
-      "HttpOnly",
-      "Secure",        // requerido con SameSite=None
-      "SameSite=None", // para CORS
-      "Max-Age=2592000" // ~30 días
-    ].join("; ")
-  );
+  // Solo para WEB (cuando hay Origin permitido): cookie HttpOnly con refresh
+  if (fromWeb && allowed) {
+    res.cookies.set({
+      name: "refresh_token",
+      value: refreshToken,
+      httpOnly: true,
+      secure: true,       // obligatorio con SameSite=None
+      sameSite: "none",   // cross-site (p.ej. api.tu.com y app.tu.com)
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30, // 30 días
+    });
+  }
 
   return res;
-}
-
-// Helpers
-function addJson(h: Headers) {
-  const out = new Headers(h);
-  out.set("Content-Type", "application/json");
-  return out;
 }
