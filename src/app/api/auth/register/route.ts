@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 const ALLOWED_ORIGINS = new Set<string>([
   "http://localhost:8081",
   "http://localhost:19006",
-  process.env.NEXT_PUBLIC_WEB_ORIGIN ?? "", // tu dominio en prod
+  process.env.NEXT_PUBLIC_WEB_ORIGIN ?? "",
 ].filter(Boolean));
 
 function buildCors(req: NextRequest) {
@@ -25,7 +25,7 @@ function buildCors(req: NextRequest) {
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-CSRF-Token",
     "Access-Control-Max-Age": "600",
-    "Vary": "Origin",
+    Vary: "Origin",
   });
   if (allowed) headers.set("Access-Control-Allow-Origin", origin!);
 
@@ -37,13 +37,12 @@ function getClientIp(req: NextRequest) {
   return fwd?.split(",")[0]?.trim();
 }
 
-// ——— Validación ———
+// ——— Validación body ———
 const RegisterSchema = z.object({
   name: z.string().min(1).max(120),
   email: z.string().email(),
   password: z.string().min(6).max(100),
 });
-type RegisterBody = z.infer<typeof RegisterSchema>;
 
 type UserRow = {
   id: string;
@@ -65,14 +64,17 @@ export async function OPTIONS(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { fromWeb, allowed, headers } = buildCors(req);
 
-  // Bloquea navegadores con Origin no permitido (RN normalmente no manda Origin)
   if (fromWeb && !allowed) {
     return new NextResponse("Origin not allowed", { status: 403, headers });
   }
 
-  // Parseo seguro (sin any)
+  // Parseo seguro
   let bodyUnknown: unknown;
-  try { bodyUnknown = await req.json(); } catch { bodyUnknown = {}; }
+  try {
+    bodyUnknown = await req.json();
+  } catch {
+    bodyUnknown = {};
+  }
   const parsed = RegisterSchema.safeParse(bodyUnknown);
   if (!parsed.success) {
     return NextResponse.json(
@@ -84,16 +86,17 @@ export async function POST(req: NextRequest) {
 
   // Hash
   const rounds = Number.parseInt(process.env.BCRYPT_SALT_ROUNDS ?? "12", 10);
-  const passwordHash = await bcrypt.hash(password, Number.isFinite(rounds) ? rounds : 12);
+  const passwordHash = await bcrypt.hash(
+    password,
+    Number.isFinite(rounds) ? rounds : 12
+  );
 
   try {
-    // Inserta usuario y retorna datos básicos
-    // Ajusta si tu helper sql soporta genéricos; si no, castea a UserRow[]
-    const rows = (await sql/*sql*/`
+    const rows = (await sql/* sql */`
       INSERT INTO users (email, password_hash, name)
       VALUES (${email}, ${passwordHash}, ${name})
       RETURNING id, email, name, tz
-    `) as unknown as UserRow[];
+    `) as UserRow[];
 
     const user = rows?.[0];
     if (!user) {
@@ -103,7 +106,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Emite tokens
+    // ✅ Usa helper centralizado: issueTokensForUser
     const jwtUser: JwtUser = { id: user.id, email: user.email };
     const { accessToken, refreshToken } = await issueTokensForUser(jwtUser, {
       userAgent: req.headers.get("user-agent") ?? undefined,
@@ -111,16 +114,11 @@ export async function POST(req: NextRequest) {
     });
 
     const res = NextResponse.json(
-      {
-        ok: true,
-        user,
-        accessToken,
-        refreshToken, // 👉 RN lo guardará en SecureStore
-      },
+      { ok: true, user, accessToken, refreshToken },
       { status: 201, headers }
     );
 
-    // 🍪 Web: set cookie HttpOnly SOLO si viene de un origin permitido
+    // 🍪 Web: set cookie HttpOnly solo si origen permitido
     if (fromWeb && allowed) {
       res.cookies.set({
         name: "refresh_token",
@@ -134,7 +132,7 @@ export async function POST(req: NextRequest) {
     }
 
     return res;
-  } catch (err: unknown) {
+  } catch (err) {
     if (isUniqueViolation(err)) {
       return NextResponse.json(
         { ok: false, error: "EMAIL_ALREADY_REGISTERED" },
@@ -142,9 +140,6 @@ export async function POST(req: NextRequest) {
       );
     }
     const message = err instanceof Error ? err.message : "REGISTER_FAILED";
-    return NextResponse.json(
-      { ok: false, error: message },
-      { status: 400, headers }
-    );
+    return NextResponse.json({ ok: false, error: message }, { status: 400, headers });
   }
 }

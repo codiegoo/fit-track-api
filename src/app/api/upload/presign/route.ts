@@ -11,6 +11,7 @@ import { sql } from "../../_lib/db";
 import { z } from "zod";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import crypto from "crypto";
 
 // —— Validación del body ——
 const schema = z.object({
@@ -20,7 +21,6 @@ const schema = z.object({
     .min(3)
     .refine((ct) => /^image\/(jpeg|png|webp|heic|heif|gif)$/.test(ct), "Unsupported contentType"),
 });
-type PresignBody = z.infer<typeof schema>;
 
 // —— S3 client ——
 const s3 = new S3Client({
@@ -29,15 +29,14 @@ const s3 = new S3Client({
     accessKeyId: process.env.S3_ACCESS_KEY_ID!,
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
   },
-  // Si usas S3 compatible (R2/MinIO), añade:
-  // endpoint: process.env.S3_ENDPOINT,
+  // endpoint: process.env.S3_ENDPOINT, // si usas S3 compatible
   // forcePathStyle: true,
 });
 
-// Ayuda: quita paths raros y extrae extensión
+// Helpers filename/ext
 function sanitizeFileName(name: string) {
-  const base = name.split("/").pop()!.split("\\").pop()!; // quita rutas
-  return base.replace(/[^\w.\-]/g, "_"); // deja solo seguro
+  const base = name.split("/").pop()!.split("\\").pop()!;
+  return base.replace(/[^\w.\-]/g, "_");
 }
 function pickExtFrom(name: string, fallback = "jpg") {
   const dot = name.lastIndexOf(".");
@@ -51,7 +50,7 @@ export async function POST(req: NextRequest) {
   try {
     const u = requireUser(req); // Authorization: Bearer <access>
 
-    // Parse body sin `any`
+    // Parse body tipado
     let bodyUnknown: unknown;
     try {
       bodyUnknown = await req.json();
@@ -76,20 +75,17 @@ export async function POST(req: NextRequest) {
       Bucket: process.env.S3_BUCKET!,
       Key: key,
       ContentType: contentType,
-      // Opcional: si quieres exigir que el cliente suba con ese Content-Type exacto,
-      // puedes validar en un proxy o usar conditions en POST policy (otra estrategia).
-      // ACL: no pongas pública aquí; mejor sirve con CloudFront o firmas de lectura.
     });
 
     const uploadUrl = await getSignedUrl(s3, put, { expiresIn: 60 * 5 }); // 5 min
     const fileUrl = `https://${process.env.S3_BUCKET}.s3.${process.env.S3_REGION}.amazonaws.com/${key}`;
 
     // Guarda registro de upload
-    const rows = (await sql/* sql */`
+    const rows: UploadRow[] = await sql/* sql */`
       INSERT INTO uploads (user_id, storage_key, url, content_type, status)
       VALUES (${u.id}, ${key}, ${fileUrl}, ${contentType}, 'pending'::file_status)
       RETURNING id
-    `) as unknown as UploadRow[];
+    `;
 
     const up = rows?.[0];
     if (!up) return err("FAILED_TO_PRESIGN", 400);

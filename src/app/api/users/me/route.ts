@@ -15,7 +15,7 @@ type UserRow = {
   name: string | null;
   avatar_url: string | null;
   tz: string;
-  settings: unknown;            // JSONB
+  settings: Record<string, unknown>; // JSONB → más tipado que `unknown`
   last_login_at: string | null; // timestamptz ISO o null
 };
 
@@ -23,14 +23,14 @@ export async function GET(req: NextRequest) {
   try {
     const u = requireUser(req); // Authorization: Bearer <access>
 
-    const rows = (await sql/* sql */`
+    const rows: UserRow[] = await sql/* sql */`
       SELECT id, email, name, avatar_url, tz, settings, last_login_at
       FROM users
       WHERE id = ${u.id}
       LIMIT 1
-    `) as unknown as UserRow[];
+    `;
 
-    const user = rows?.[0];
+    const user = rows[0];
     if (!user) return err("User not found", 404);
 
     return ok({ user });

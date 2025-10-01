@@ -18,11 +18,11 @@ export async function GET(req: NextRequest) {
   try {
     const u = requireUser(req); // Authorization: Bearer <access>
 
-    const rows = (await sql/* sql */`
+    const rows: StreakRow[] = await sql/* sql */`
       SELECT
         compute_current_streak(${u.id}::uuid) AS current,
         compute_max_streak(${u.id}::uuid)     AS max
-    `) as unknown as StreakRow[];
+    `;
 
     const streak = rows?.[0];
     if (!streak) return err("FAILED_TO_GET_STREAKS", 400);

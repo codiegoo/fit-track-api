@@ -25,10 +25,7 @@ const createSchema = z.object({
 // ——— Validación de query (listar) ———
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  since: z
-    .string()
-    .datetime()
-    .optional(), // ISO 8601
+  since: z.string().datetime().optional(),
 });
 
 type RecordRow = {
@@ -39,15 +36,15 @@ type RecordRow = {
   thumbnail_url: string | null;
   upload_id: string | null;
   client_tz: string;
-  recorded_at: string; // timestamptz -> ISO
-  local_date: string; // date -> YYYY-MM-DD
-  created_at: string; // timestamptz -> ISO
+  recorded_at: string;
+  local_date: string;
+  created_at: string;
 };
 
 // ——— GET /api/records ———
 export async function GET(req: NextRequest) {
   try {
-    const u = requireUser(req); // Authorization: Bearer <access>
+    const u = requireUser(req);
 
     const q = Object.fromEntries(req.nextUrl.searchParams.entries());
     const parsed = listQuerySchema.safeParse(q);
@@ -56,7 +53,7 @@ export async function GET(req: NextRequest) {
     }
     const { limit, since } = parsed.data;
 
-    const rows = (await sql/* sql */`
+    const rows: RecordRow[] = await sql/* sql */`
       SELECT id, meal_type, note, photo_url, thumbnail_url, upload_id,
              client_tz, recorded_at, local_date, created_at
       FROM records
@@ -64,7 +61,7 @@ export async function GET(req: NextRequest) {
         AND (${since ?? null}::timestamptz IS NULL OR recorded_at >= ${since ?? null})
       ORDER BY recorded_at DESC
       LIMIT ${limit}
-    `) as unknown as RecordRow[];
+    `;
 
     return ok({ items: rows });
   } catch (e) {
@@ -95,7 +92,7 @@ export async function POST(req: NextRequest) {
     }
     const body = parsed.data;
 
-    const rows = (await sql/* sql */`
+    const rows: RecordRow[] = await sql/* sql */`
       INSERT INTO records
         (user_id, meal_type, note, photo_url, thumbnail_url, upload_id, client_tz, recorded_at)
       VALUES
@@ -111,12 +108,12 @@ export async function POST(req: NextRequest) {
         )
       RETURNING id, meal_type, note, photo_url, thumbnail_url, upload_id,
                 client_tz, recorded_at, local_date, created_at
-    `) as unknown as RecordRow[];
+    `;
 
     const record = rows?.[0];
     if (!record) return err("FAILED_TO_CREATE_RECORD", 400);
 
-    // (Tu OpenAPI lo marca como 200; si quisieras 201, puedes usar `ok({record}, 201)`)
+    // OpenAPI lo marca como 200; si quieres, puedes devolver 201
     return ok({ record });
   } catch (e) {
     if (e instanceof Error && /token|unauthori[sz]ed|bearer|jwt/i.test(e.message)) {
