@@ -12,10 +12,10 @@ import React from "react";
  * Requiere Tailwind.
  */
 
-// ===== Tokens de color (ligero toque Material) =====
+
 const palette = {
   bg: "#0b0f14",
-  card: "#111826",
+  card: "#192743ff",
   primary: "#1f6feb",
   primaryAlt: "#2a84ff",
   accent: "#22c55e",
@@ -24,7 +24,8 @@ const palette = {
   danger: "#ef4444",
 };
 
-// ===== Utils =====
+
+
 function SecTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="mb-3 mt-10 text-center text-sm font-semibold uppercase tracking-widest text-zinc-400">
@@ -33,8 +34,7 @@ function SecTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Marco de teléfono (Android‑ish)
-const PhoneFrame: React.FC<{ children: React.ReactNode }>=({ children }) => (
+const PhoneFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="mx-auto w-full max-w-[420px] px-2">
     <div className="rounded-[36px] border border-zinc-700 bg-black shadow-2xl">
       <div className="relative m-3 rounded-[30px]" style={{ background: palette.bg }}>
@@ -42,7 +42,7 @@ const PhoneFrame: React.FC<{ children: React.ReactNode }>=({ children }) => (
           <span>9:41</span>
           <div className="flex gap-1"><span>📶</span><span>📡</span><span>🔋</span></div>
         </div>
-        <div className="h-[760px] overflow-hidden rounded-[26px] border border-zinc-800">
+        <div className="h-[760px] overflow-hidden rounded-[26px] border border-zinc-800 p-[10px]">
           {children}
         </div>
       </div>
@@ -50,7 +50,6 @@ const PhoneFrame: React.FC<{ children: React.ReactNode }>=({ children }) => (
   </div>
 );
 
-// Header simple
 function Header({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
   return (
     <div className="flex items-end justify-between px-5 pb-4 pt-5" style={{ background: "linear-gradient(180deg, rgba(31,111,235,0.14), transparent)" }}>
@@ -63,7 +62,6 @@ function Header({ title, subtitle, right }: { title: string; subtitle?: string; 
   );
 }
 
-// Campo visual (sin inputs reales)
 function MockField({ label, hint }: { label: string; hint?: string }) {
   return (
     <div>
@@ -75,7 +73,7 @@ function MockField({ label, hint }: { label: string; hint?: string }) {
   );
 }
 
-function MockBtn({ text, variant = "primary" as const }: { text: string; variant?: "primary"|"ghost"|"danger"|"accent" }) {
+function MockBtn({ text, variant = "primary" as const }: { text: string; variant?: "primary" | "ghost" | "danger" | "accent" }) {
   const base = "w-full rounded-2xl px-4 py-3 text-center text-[15px] font-medium";
   const map = {
     primary: `bg-[${palette.primary}] text-white`,
@@ -90,10 +88,9 @@ function Chip({ children }: { children: React.ReactNode }) {
   return <span className="rounded-full border border-zinc-700 bg-zinc-900/70 px-3 py-1 text-[12px] text-zinc-300">{children}</span>;
 }
 
-// ======== PANTALLAS (ilustrativas) ========
 function ScreenLogin() {
   return (
-    <div className="flex h-full flex-col" style={{ backgroundColor: palette.bg }}>
+    <div className="flex h-full flex-col p-[10px]" style={{ backgroundColor: palette.bg }}>
       <Header title="Fit‑Tracker" subtitle="Bienvenido de vuelta" />
       <div className="flex-1 space-y-4 overflow-y-auto px-5 pb-4">
         <MockField label="Email" hint="tu@correo.com" />
@@ -107,7 +104,7 @@ function ScreenLogin() {
 
 function ScreenRegister() {
   return (
-    <div className="flex h-full flex-col" style={{ backgroundColor: palette.bg }}>
+    <div className="flex h-full flex-col p-[10px]" style={{ backgroundColor: palette.bg }}>
       <Header title="Crear cuenta" subtitle="Bienvenido" />
       <div className="flex-1 space-y-4 overflow-y-auto px-5 pb-4">
         <MockField label="Nombre" hint="Tu nombre" />
@@ -122,13 +119,13 @@ function ScreenRegister() {
 
 function ScreenHome() {
   return (
-    <div className="flex h-full flex-col" style={{ backgroundColor: palette.bg }}>
+    <div className="flex h-full flex-col p-[10px]" style={{ backgroundColor: palette.bg }}>
       <Header title="Hola, Usuario" subtitle="miércoles, Oct 15" right={<Chip>🔥 5‑day streak</Chip>} />
       <div className="flex-1 overflow-y-auto px-5 pb-24">
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-zinc-300">Hoy</h3>
           <div className="grid grid-cols-2 gap-3">
-            {["Desayuno","Comida","Cena","Snack"].map((m,i)=> (
+            {["Desayuno", "Comida", "Cena", "Snack"].map((m, i) => (
               <div key={i} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
                 <p className="text-[12px] text-zinc-400">{m}</p>
                 <div className="mt-2 h-28 rounded-xl bg-zinc-800/60" />
@@ -138,11 +135,11 @@ function ScreenHome() {
           </div>
         </section>
       </div>
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-[--pri] p-4 text-2xl text-white shadow-lg" style={{ ['--pri' as any]: palette.primary }}>+</div>
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded-full p-4 text-2xl text-white shadow-lg" style={{ backgroundColor: palette.primary }}>+</div>
       <nav className="sticky bottom-0 flex justify-around border-t border-zinc-800 bg-[#0b0f14]/95 py-2 backdrop-blur">
-        {["Inicio","Nuevo","Rachas","Perfil"].map((t,i)=> (
+        {["Inicio", "Nuevo", "Rachas", "Perfil"].map((t, i) => (
           <div key={i} className="flex flex-col items-center gap-0.5 rounded-xl px-3 py-1 text-[12px] text-zinc-400">
-            <span className="text-lg leading-none">{["🏠","➕","🔥","👤"][i]}</span>
+            <span className="text-lg leading-none">{["🏠", "➕", "🔥", "👤"][i]}</span>
             <span>{t}</span>
           </div>
         ))}
@@ -153,18 +150,20 @@ function ScreenHome() {
 
 function ScreenAddRecord() {
   return (
-    <div className="flex h-full flex-col" style={{ backgroundColor: palette.bg }}>
+    <div className="flex h-full flex-col p-[10px]" style={{ backgroundColor: palette.bg }}>
       <Header title="Nuevo registro" subtitle="Añade tu comida" />
       <div className="flex-1 space-y-4 overflow-y-auto px-5 pb-24">
         <div className="aspect-[4/3] w-full rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/40" />
         <div className="grid grid-cols-4 gap-2 text-[12px]">
-          {["Desayuno","Comida","Cena","Snack"].map((t,i)=>(
-            <div key={i} className="rounded-xl border border-zinc-700 px-3 py-2 text-center text-zinc-300">{t}</div>
+          {["Desayuno", "Comida", "Cena", "Snack"].map((t, i) => (
+            <div key={i} className="rounded-xl border border-zinc-700 px-3 py-2 text-center text-zinc-300">
+              {t}
+            </div>
           ))}
         </div>
         <MockField label="Nota" hint="¿Qué comiste?" />
       </div>
-      <div className="sticky bottom-0 flex gap-3 bg-[--bg] px-5 pb-5 pt-3" style={{ ['--bg' as any]: palette.bg }}>
+      <div className="sticky bottom-0 flex gap-3 px-5 pb-5 pt-3" style={{ backgroundColor: palette.bg }}>
         <div className="w-full rounded-2xl border border-zinc-700 px-4 py-3 text-center text-[15px] text-zinc-200">Cancelar</div>
         <MockBtn text="Guardar" />
       </div>
@@ -174,7 +173,7 @@ function ScreenAddRecord() {
 
 function ScreenStreaks() {
   return (
-    <div className="flex h-full flex-col" style={{ backgroundColor: palette.bg }}>
+    <div className="flex h-full flex-col p-[10px]" style={{ backgroundColor: palette.bg }}>
       <Header title="Rachas" subtitle="¡Sigue así!" />
       <div className="grid flex-1 grid-cols-2 gap-3 px-5 pb-5">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
@@ -194,7 +193,7 @@ function ScreenStreaks() {
 
 function ScreenProfile() {
   return (
-    <div className="flex h-full flex-col" style={{ backgroundColor: palette.bg }}>
+    <div className="flex h-full flex-col p-[10px]" style={{ backgroundColor: palette.bg }}>
       <Header title="Perfil" subtitle="Preferencias" />
       <div className="flex-1 space-y-4 overflow-y-auto px-5 pb-5">
         <div className="flex items-center gap-3">
@@ -207,7 +206,9 @@ function ScreenProfile() {
         <hr className="border-zinc-800" />
         <div className="flex items-center justify-between text-[15px] text-zinc-200">
           <span>Notificaciones</span>
-          <div className="h-5 w-10 rounded-full bg-zinc-700"><div className="h-5 w-5 translate-x-5 rounded-full bg-white"/></div>
+          <div className="h-5 w-10 rounded-full bg-zinc-700">
+            <div className="h-5 w-5 translate-x-5 rounded-full bg-white" />
+          </div>
         </div>
         <MockField label="Nombre" hint="Nombre de usuario" />
         <MockField label="Zona horaria" hint="America/Mazatlan" />
@@ -217,7 +218,6 @@ function ScreenProfile() {
   );
 }
 
-// ===== Página: todas las pantallas apiladas y responsivas =====
 export default function MobileMockupsPage() {
   return (
     <main className="min-h-screen w-full bg-gradient-to-b from-[#0b0f14] to-black px-4 py-8 text-zinc-100 flex flex-col items-center">
@@ -254,10 +254,6 @@ export default function MobileMockupsPage() {
         <div className="flex w-full justify-center">
           <PhoneFrame><ScreenProfile /></PhoneFrame>
         </div>
-
-        <footer className="mt-10 text-center text-xs text-zinc-500">
-          UI demo estática. Ajusta colores, tipografías o espaciados a tu gusto.
-        </footer>
       </div>
     </main>
   );
