@@ -39,7 +39,7 @@
     "**/*.tsx",
     "**/*.d.ts",
     ".next/types/**/*.ts"
-  ],
+, "src/app/api/page.jsx"  ],
   "exclude": [
     "node_modules"
   ]

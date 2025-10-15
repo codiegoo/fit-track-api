@@ -75,7 +75,6 @@ export async function POST(req: NextRequest) {
     const user = requireUser(req);
     const contentType = req.headers.get("content-type") ?? "";
 
-    let meal_type: any;
     let note: string | null = null;
     let clientTz = "UTC";
     let recordedAt: string | null = null;
@@ -89,7 +88,7 @@ export async function POST(req: NextRequest) {
       if (!parsed.success) {
         return err("INVALID_BODY", 400, { details: parsed.error.toString() });
       }
-      meal_type = parsed.data.meal_type;
+
       note = parsed.data.note ?? null;
       clientTz = parsed.data.clientTz;
       recordedAt = parsed.data.recordedAt ?? null;
@@ -99,7 +98,6 @@ export async function POST(req: NextRequest) {
     // —— Caso 2: multipart/form-data (upload desde navegador) ——
     else if (contentType.startsWith("multipart/form-data")) {
       const form = await req.formData();
-      meal_type = form.get("meal_type");
       note = (form.get("note") as string) ?? null;
       clientTz = (form.get("clientTz") as string) ?? "UTC";
       recordedAt = (form.get("recordedAt") as string) ?? null;
@@ -119,7 +117,7 @@ export async function POST(req: NextRequest) {
       INSERT INTO records
         (user_id, meal_type, note, photo_data, photo_name, client_tz, recorded_at)
       VALUES
-        (${user.id}, ${meal_type}::meal_type, ${note}, ${photo_data}, ${photo_name},
+        (${user.id}, ${note}, ${photo_data}, ${photo_name},
          ${clientTz}, ${recordedAt ?? null})
       RETURNING id, meal_type, note, photo_name, client_tz, recorded_at, local_date, created_at
     `) as RecordRow[];
