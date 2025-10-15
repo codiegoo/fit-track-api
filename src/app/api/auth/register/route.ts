@@ -1,4 +1,4 @@
-// app/api/auth/register/route.ts
+// src/app/api/auth/register/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { sql, isUniqueViolation } from "../../_lib/db";
 import { issueTokensForUser, type JwtUser } from "../../_lib/auth";
@@ -8,36 +8,7 @@ import { z } from "zod";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// ——— Orígenes permitidos (WEB) ———
-const ALLOWED_ORIGINS = new Set<string>([
-  "http://localhost:8081",
-  "http://localhost:19006",
-  process.env.NEXT_PUBLIC_WEB_ORIGIN ?? "",
-].filter(Boolean));
-
-function buildCors(req: NextRequest) {
-  const origin = req.headers.get("origin");
-  const fromWeb = !!origin;
-  const allowed = fromWeb && ALLOWED_ORIGINS.has(origin!);
-
-  const headers = new Headers({
-    "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-CSRF-Token",
-    "Access-Control-Max-Age": "600",
-    Vary: "Origin",
-  });
-  if (allowed) headers.set("Access-Control-Allow-Origin", origin!);
-
-  return { fromWeb, allowed, headers };
-}
-
-function getClientIp(req: NextRequest) {
-  const fwd = req.headers.get("x-forwarded-for");
-  return fwd?.split(",")[0]?.trim();
-}
-
-// ——— Validación body ———
+// ——— Esquema de validación del body ———
 const RegisterSchema = z.object({
   name: z.string().min(1).max(120),
   email: z.string().email(),
@@ -51,48 +22,33 @@ type UserRow = {
   tz: string | null;
 };
 
-// ——— Preflight ———
-export async function OPTIONS(req: NextRequest) {
-  const { fromWeb, allowed, headers } = buildCors(req);
-  if (fromWeb && !allowed) {
-    return new NextResponse("Origin not allowed", { status: 403, headers });
-  }
-  return new NextResponse(null, { status: 204, headers });
+function clientIp(req: NextRequest) {
+  const xff = req.headers.get("x-forwarded-for") || "";
+  return xff.split(",")[0]?.trim() || null;
 }
 
-// ——— POST /register ———
 export async function POST(req: NextRequest) {
-  const { fromWeb, allowed, headers } = buildCors(req);
-
-  if (fromWeb && !allowed) {
-    return new NextResponse("Origin not allowed", { status: 403, headers });
-  }
-
-  // Parseo seguro
-  let bodyUnknown: unknown;
-  try {
-    bodyUnknown = await req.json();
-  } catch {
-    bodyUnknown = {};
-  }
-  const parsed = RegisterSchema.safeParse(bodyUnknown);
+  // 1️⃣ Parse seguro del body
+  const parsed = RegisterSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json(
       { ok: false, error: "INVALID_BODY", details: parsed.error.flatten() },
-      { status: 400, headers }
+      { status: 400 }
     );
   }
+
   const { name, email, password } = parsed.data;
 
-  // Hash
+  // 2️⃣ Generar hash de contraseña
   const rounds = Number.parseInt(process.env.BCRYPT_SALT_ROUNDS ?? "12", 10);
   const passwordHash = await bcrypt.hash(
     password,
     Number.isFinite(rounds) ? rounds : 12
   );
 
+  // 3️⃣ Crear usuario y emitir tokens
   try {
-    const rows = (await sql/* sql */`
+    const rows = (await sql/*sql*/`
       INSERT INTO users (email, password_hash, name)
       VALUES (${email}, ${passwordHash}, ${name})
       RETURNING id, email, name, tz
@@ -102,44 +58,35 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { ok: false, error: "REGISTER_FAILED" },
-        { status: 400, headers }
+        { status: 400 }
       );
     }
 
-    // ✅ Usa helper centralizado: issueTokensForUser
     const jwtUser: JwtUser = { id: user.id, email: user.email };
+
     const { accessToken, refreshToken } = await issueTokensForUser(jwtUser, {
       userAgent: req.headers.get("user-agent") ?? undefined,
-      ip: getClientIp(req),
+      ip: clientIp(req),
     });
 
-    const res = NextResponse.json(
+    // 4️⃣ Devolver tokens y usuario
+    // Sin cookies ni CORS: los maneja el BFF o la app móvil.
+    return NextResponse.json(
       { ok: true, user, accessToken, refreshToken },
-      { status: 201, headers }
+      { status: 201 }
     );
-
-    // 🍪 Web: set cookie HttpOnly solo si origen permitido
-    if (fromWeb && allowed) {
-      res.cookies.set({
-        name: "refresh_token",
-        value: refreshToken,
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 30, // 30 días
-      });
-    }
-
-    return res;
   } catch (err) {
     if (isUniqueViolation(err)) {
       return NextResponse.json(
         { ok: false, error: "EMAIL_ALREADY_REGISTERED" },
-        { status: 409, headers }
+        { status: 409 }
       );
     }
+
     const message = err instanceof Error ? err.message : "REGISTER_FAILED";
-    return NextResponse.json({ ok: false, error: message }, { status: 400, headers });
+    return NextResponse.json(
+      { ok: false, error: message },
+      { status: 400 }
+    );
   }
 }

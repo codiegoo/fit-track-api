@@ -1,4 +1,3 @@
-// app/api/streaks/route.ts
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -14,15 +13,18 @@ type StreakRow = {
   max: number;
 };
 
+// —— GET /api/streaks ——
+// No usa CORS. Web lo consume vía BFF (mismo dominio).
+// Android lo llama directo con Authorization: Bearer <token>.
 export async function GET(req: NextRequest) {
   try {
-    const u = requireUser(req); // Authorization: Bearer <access>
+    const user = requireUser(req);
 
-    const rows: StreakRow[] = await sql/* sql */`
+    const rows = (await sql/*sql*/`
       SELECT
-        compute_current_streak(${u.id}::uuid) AS current,
-        compute_max_streak(${u.id}::uuid)     AS max
-    `;
+        compute_current_streak(${user.id}::uuid) AS current,
+        compute_max_streak(${user.id}::uuid)     AS max
+    `) as StreakRow[];
 
     const streak = rows?.[0];
     if (!streak) return err("FAILED_TO_GET_STREAKS", 400);
@@ -30,11 +32,8 @@ export async function GET(req: NextRequest) {
     return ok({ streak });
   } catch (e) {
     if (e instanceof Error && /token|unauthori[sz]ed|bearer|jwt/i.test(e.message)) {
-      return err("Unauthorized", 401);
+      return err("UNAUTHORIZED", 401);
     }
-    if (e instanceof Error) {
-      return err(e.message || "Failed to get streaks", 400);
-    }
-    return err("Failed to get streaks", 400);
+    return err(e instanceof Error ? e.message : "FAILED_TO_GET_STREAKS", 400);
   }
 }

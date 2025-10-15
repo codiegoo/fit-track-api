@@ -15,32 +15,29 @@ type UserRow = {
   name: string | null;
   avatar_url: string | null;
   tz: string;
-  settings: Record<string, unknown>; // JSONB → más tipado que `unknown`
-  last_login_at: string | null; // timestamptz ISO o null
+  settings: Record<string, unknown>;
+  last_login_at: string | null;
 };
 
 export async function GET(req: NextRequest) {
   try {
-    const u = requireUser(req); // Authorization: Bearer <access>
+    const u = requireUser(req);
 
-    const rows: UserRow[] = await sql/* sql */`
+    const rows = (await sql/* sql */`
       SELECT id, email, name, avatar_url, tz, settings, last_login_at
       FROM users
       WHERE id = ${u.id}
       LIMIT 1
-    `;
+    `) as UserRow[];
 
     const user = rows[0];
-    if (!user) return err("User not found", 404);
+    if (!user) return err("USER_NOT_FOUND", 404);
 
-    return ok({ user });
+    return ok({ user }); // { ok:true, user }
   } catch (e) {
     if (e instanceof Error && /token|unauthori[sz]ed|bearer|jwt/i.test(e.message)) {
-      return err("Unauthorized", 401);
+      return err("UNAUTHORIZED", 401);
     }
-    if (e instanceof Error) {
-      return err(e.message || "Failed to get user", 400);
-    }
-    return err("Failed to get user", 400);
+    return err(e instanceof Error ? e.message : "FAILED_TO_GET_USER", 400);
   }
 }

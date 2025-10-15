@@ -23,8 +23,7 @@ export async function GET() {
       { name: "users" },
       { name: "records" },
       { name: "streaks" },
-      { name: "notifications" },
-      { name: "upload" },
+      { name: "notifications" }
     ],
     components: {
       securitySchemes: {
@@ -400,35 +399,7 @@ export async function GET() {
             },
           },
         },
-      },
-      "/api/upload/presign": {
-        post: {
-          tags: ["upload"],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": { schema: { $ref: "#/components/schemas/PresignRequest" } },
-            },
-          },
-          responses: {
-            "200": {
-              description: "URL prefirmada",
-              content: {
-                "application/json": {
-                  schema: { $ref: "#/components/schemas/PresignResponse" },
-                },
-              },
-            },
-            "401": {
-              description: "No autorizado",
-              content: {
-                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
-              },
-            },
-          },
-        },
-      },
+      }
     },
   } as const satisfies OpenAPISpec;
 
