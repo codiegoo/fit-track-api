@@ -11,12 +11,15 @@
   "dependencies": {
     "@aws-sdk/s3-request-presigner": "^3.896.0",
     "@neondatabase/serverless": "^1.0.1",
+    "@tailwindcss/postcss": "^4.1.14",
     "bcryptjs": "^3.0.2",
     "jsonwebtoken": "^9.0.2",
     "next": "15.5.3",
+    "postcss": "^8.5.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "swagger-ui-react": "^5.29.0",
+    "tailwindcss": "^4.1.14",
     "zod": "3.25.76"
   },
   "devDependencies": {
